@@ -1,0 +1,29 @@
+# Entornos y dependencias
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Configuración y secretos
+.env
+.env.*
+!.env.example
+.secrets/
+backups/
+
+# Compilados y cobertura
+dist/
+build/
+coverage/
+htmlcov/
+
+# IDE y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.log
+tmp/

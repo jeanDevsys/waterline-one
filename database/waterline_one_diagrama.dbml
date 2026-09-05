@@ -1,0 +1,184 @@
+// Diagrama de Waterline One. Fuente: 001_waterline_one.sql.
+
+Table rol {
+  id tinyint [pk]
+  codigo varchar(30) [not null, unique, note: 'administrador o vendedor']
+}
+
+Table usuario {
+  id bigint [pk, increment]
+  rol_id tinyint [not null]
+  nombre varchar(150) [not null]
+  email varchar(254) [not null, unique]
+  password_hash varchar(255) [not null, note: 'Hash; nunca contraseña en texto']
+  activo boolean [not null, default: true]
+  creado_en datetime [not null]
+}
+
+Table cliente {
+  id bigint [pk, increment]
+  nombre varchar(180) [not null]
+  telefono varchar(40)
+  activo boolean [not null, default: true]
+  creado_por bigint [not null]
+  creado_en datetime [not null]
+
+  indexes { nombre }
+}
+
+Table ubicacion_cliente {
+  id bigint [pk, increment]
+  cliente_id bigint [not null, unique]
+  direccion varchar(500)
+  comunidad varchar(120)
+  latitud decimal(9,6)
+  longitud decimal(9,6)
+  foto_url varchar(1000)
+  foto_autorizada boolean [not null, default: false]
+
+  indexes { comunidad }
+}
+
+Table producto {
+  id bigint [pk, increment]
+  codigo varchar(40) [not null, unique]
+  nombre varchar(150) [not null]
+  unidad varchar(30) [not null, default: 'unidad']
+  precio_referencia decimal(13,2) [not null]
+  activo boolean [not null, default: true]
+  creado_en datetime [not null]
+}
+
+Table operacion {
+  id bigint [pk, increment]
+  folio char(36) [not null, unique, note: 'Folio único global']
+  tipo varchar(30) [not null, note: 'ENTREGA_CREDITO, ENTREGA_CONTADO, PAGO_ABONO, PAGO_CONTADO, LIQUIDACION o ANULACION_PAGO']
+  fecha datetime [not null]
+  usuario_id bigint [not null, note: 'Responsable de la operación']
+  cliente_id bigint
+  monto decimal(13,2) [not null]
+  saldo_anterior decimal(15,2)
+  saldo_nuevo decimal(15,2)
+
+  indexes {
+    (cliente_id, fecha, id)
+    (usuario_id, fecha, id)
+    (tipo, fecha, id)
+  }
+}
+
+Table entrega {
+  id bigint [pk, note: 'PK y FK a operacion']
+  modalidad varchar(10) [not null, note: 'CREDITO o CONTADO']
+}
+
+Table entrega_detalle {
+  id bigint [pk, increment]
+  entrega_id bigint [not null]
+  renglon smallint [not null]
+  producto_id bigint [not null]
+  producto_nombre varchar(150) [not null, note: 'Instantánea histórica']
+  unidad varchar(30) [not null, note: 'Instantánea histórica']
+  cantidad decimal(12,3) [not null]
+  precio_unitario decimal(13,2) [not null]
+  subtotal decimal(13,2) [not null, note: 'Generado: cantidad × precio unitario']
+
+  indexes { (entrega_id, renglon) [unique] }
+}
+
+Table credito {
+  entrega_id bigint [pk, note: 'Entrega registrada a crédito']
+  vencimiento date
+}
+
+Table pago {
+  id bigint [pk, note: 'PK y FK a operacion']
+  origen varchar(10) [not null, note: 'ABONO o CONTADO']
+  entrega_id bigint [unique, note: 'Sólo para pago de una entrega al contado']
+}
+
+Table anulacion_pago {
+  id bigint [pk, note: 'PK y FK a operacion de anulación']
+  pago_id bigint [not null, unique]
+  motivo varchar(500) [not null]
+  evidencia varchar(1000) [not null]
+}
+
+Table liquidacion {
+  id bigint [pk, note: 'PK y FK a operacion']
+  vendedor_id bigint [not null]
+
+  indexes { (vendedor_id, id) }
+}
+
+Table liquidacion_pago {
+  liquidacion_id bigint [not null]
+  pago_id bigint [not null, unique, note: 'Un pago sólo puede liquidarse una vez']
+
+  indexes { (liquidacion_id, pago_id) [pk] }
+}
+
+Table constancia {
+  id bigint [pk, increment]
+  operacion_id bigint [not null, unique]
+  codigo char(12) [not null, unique]
+  token_publico char(64) [not null, unique, note: 'Consulta pública de solo lectura']
+  contenido json [not null, note: 'Instantánea de la constancia al confirmar']
+  emitida_en datetime [not null]
+}
+
+Table auditoria {
+  id bigint [pk, increment]
+  fecha datetime [not null]
+  actor_id bigint [not null]
+  accion varchar(60) [not null]
+  entidad varchar(60) [not null]
+  entidad_id bigint [not null]
+  detalle json [not null]
+  usuario_bd varchar(288) [not null]
+
+  indexes {
+    (entidad, entidad_id, fecha)
+    (actor_id, fecha)
+  }
+}
+
+Table variable_analitica {
+  id bigint [pk, increment]
+  cliente_id bigint [not null]
+  periodo_inicio date [not null]
+  periodo_fin date [not null]
+  numero_entregas int [not null]
+  monto_compras decimal(15,2) [not null]
+  dias_desde_ultima_entrega int
+  fuente_version varchar(80) [not null]
+  calculado_en datetime [not null]
+
+  indexes { (cliente_id, periodo_inicio, periodo_fin, fuente_version) [unique] }
+}
+
+Ref: usuario.rol_id > rol.id
+Ref: cliente.creado_por > usuario.id
+Ref: ubicacion_cliente.cliente_id - cliente.id
+
+Ref: operacion.usuario_id > usuario.id
+Ref: operacion.cliente_id > cliente.id
+
+Ref: entrega.id - operacion.id
+Ref: entrega_detalle.entrega_id > entrega.id
+Ref: entrega_detalle.producto_id > producto.id
+Ref: credito.entrega_id - entrega.id
+
+Ref: pago.id - operacion.id
+Ref: pago.entrega_id > entrega.id
+Ref: anulacion_pago.id - operacion.id
+Ref: anulacion_pago.pago_id - pago.id
+
+Ref: liquidacion.id - operacion.id
+Ref: liquidacion.vendedor_id > usuario.id
+Ref: liquidacion_pago.liquidacion_id > liquidacion.id
+Ref: liquidacion_pago.pago_id > pago.id
+
+Ref: constancia.operacion_id > operacion.id
+Ref: auditoria.actor_id > usuario.id
+Ref: variable_analitica.cliente_id > cliente.id

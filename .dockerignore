@@ -1,0 +1,10 @@
+**
+!infra/
+!infra/mysql/
+!infra/mysql/Dockerfile
+!infra/mysql/my.cnf
+!infra/mysql/900-users.sh
+!infra/mysql/healthcheck.sh
+!infra/mysql/backup.sh
+!database/
+!database/001_waterline_one.sql

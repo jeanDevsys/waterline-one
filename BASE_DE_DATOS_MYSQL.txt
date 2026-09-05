@@ -1,0 +1,104 @@
+WATERLINE ONE - BASE DE DATOS MYSQL EN DOCKER
+Cada entrega. Cada pago. Bajo control.
+Fecha de implementacion: 05/09/2026
+
+ARCHIVOS
+  compose.yaml: servicio MySQL, volumen persistente y secretos locales.
+  infra/mysql/Dockerfile: imagen de MySQL 8.4 LTS con el esquema inicial.
+  database/001_waterline_one.sql: script SQL original que crea la base.
+  database/002_datos_demostracion.sql: datos sintéticos para explorar el modelo.
+  SCRIPT_BASE_DE_DATOS_MYSQL.txt: copia del mismo SQL para Bloc de notas.
+  database/waterline_one_diagrama.dbml: diagrama ER para dbdiagram.io.
+  database/README.md: modelo, procedimientos, seguridad y limites.
+  docs/08-decision-base-de-datos-mysql.md: cambio autorizado PostgreSQL -> MySQL.
+
+INICIAR (desde esta carpeta, en PowerShell)
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\mysql\Start-Database.ps1
+
+Requiere Docker Desktop iniciado, con contenedores Linux. El script genera
+contrasenas aleatorias solo si faltan, construye Docker e inicializa la base.
+No crea clientes reales, vendedores ni credenciales de acceso a la aplicacion.
+
+CONEXION LOCAL (por ejemplo MySQL Workbench)
+  Servidor: 127.0.0.1
+  Puerto: 3306
+  Base de datos: waterline_one
+  Usuario tecnico de la futura API: waterline_app
+  Contrasena: abrir .secrets\mysql_app_password.txt localmente.
+  Contrasena root: .secrets\mysql_root_password.txt (mantenimiento).
+
+Las contrasenas NO se copian a este documento ni al SQL. No compartir ni subir
+la carpeta .secrets. No borrar secretos de una base ya inicializada: cambiarlos
+en un archivo no cambia la contrasena guardada dentro de MySQL.
+
+CONSOLA SQL
+  docker compose exec mysql mysql -u waterline_app -p waterline_one
+Para mantenimiento y aprovisionamiento inicial de usuarios/catalogos:
+  docker compose exec mysql mysql -u root -p waterline_one
+MySQL pide la contrasena de forma interactiva.
+
+ESTADO Y REGISTROS
+  docker compose ps
+  docker compose logs --tail 100 mysql
+
+DETENER Y VOLVER A INICIAR CONSERVANDO DATOS
+  docker compose stop
+  docker compose start
+
+También puede usar docker compose down sin -v: conserva el volumen.
+No use down -v sobre la base del proyecto: elimina sus datos persistentes.
+
+OTRO PUERTO SI 3306 ESTA OCUPADO (PowerShell)
+  $env:MYSQL_PORT = '3307'
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\mysql\Start-Database.ps1
+Use entonces 3307 al conectarse. Mantenga el mismo valor para futuros comandos.
+
+RESPALDO MANUAL
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\infra\mysql\Backup-Database.ps1
+Se escribe un archivo SQL con tablas, datos, vistas, rutinas y triggers en
+backups\ (excluido de Git). Trate el respaldo como informacion privada.
+Es una copia logica de waterline_one; no incluye cuentas ni grants del servidor.
+La restauracion debe ensayarse en una instancia aislada antes de reemplazar datos.
+
+PRUEBAS AUTOMATICAS
+  python .\tests\database\test_mysql.py
+Requieren Docker y Python 3. Crean su propio contenedor y datos sinteticos,
+separados de la base del proyecto; al terminar limpian su entorno de prueba.
+
+DIAGRAMA ENTIDAD-RELACION
+1. Abra https://dbdiagram.io
+2. Cree un diagrama nuevo.
+3. Pegue el contenido de database\waterline_one_diagrama.dbml.
+El archivo incluye tablas, campos clave y relaciones. No contiene claves,
+datos ni procedimientos almacenados.
+
+DATOS DE DEMOSTRACION
+El archivo database\002_datos_demostracion.sql crea datos identificados como
+NO REAL: administrador, vendedor, cliente, ubicación, producto, entrega a
+crédito, dos abonos, una liquidación, una anulación, constancias, auditoría y
+una variable analítica. Debe ejecutarse solo una vez sobre una base vacía.
+
+SCRIPT Y CAMBIOS FUTUROS
+El SQL se ejecuta automaticamente SOLO cuando el volumen esta vacio.
+El archivo .txt de SQL es para leer/copiar en Bloc de notas; Docker usa el .sql.
+No ejecutar el script completo de nuevo sobre una base con datos.
+Cambiar el SQL y reconstruir la imagen NO migra una base existente.
+Para evolucionar el modelo, agregar migraciones incrementales y respaldar antes.
+
+REGLAS PRINCIPALES
+- Importes DECIMAL, relaciones mediante claves foraneas e indices.
+- Folios unicos, fecha y responsable de movimientos confirmados.
+- Saldo calculado de creditos y pagos validos; sobrepagos rechazados.
+- Efectivo vinculado a pagos y recibido por un administrador al liquidar.
+- Un pago no puede liquidarse dos veces.
+- Movimientos y auditoria protegidos contra edicion y eliminacion.
+- Anulacion controlada con motivo y evidencia; operacion original conservada.
+- Constancias con informacion historica y consulta prevista de solo lectura.
+- Sin datos reales, predicciones ML ni decisiones automaticas de credito.
+
+LIMITES DE ESTA ENTREGA
+La API y sus inicios de sesion aun no estan implementados. Los usuarios SQL
+son cuentas tecnicas, no cuentas de vendedores. La futura API debe verificar
+sesion y rol antes de llamar procedimientos, usando el ID del actor autenticado.
+Anular efectivo ya liquidado, cobros al contado o creditos con abonos requiere
+definir un flujo compensatorio; no se altera el historial para esos casos.

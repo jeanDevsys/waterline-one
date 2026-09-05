@@ -1,0 +1,42 @@
+name: waterline-one
+
+services:
+  mysql:
+    build:
+      context: .
+      dockerfile: infra/mysql/Dockerfile
+    image: waterline-one-mysql:8.4-local
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: waterline_one
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_ROOT_HOST: localhost
+      MYSQL_INITDB_SKIP_TZINFO: "1"
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    secrets:
+      - mysql_root_password
+      - mysql_app_password
+    healthcheck:
+      test: ["CMD", "bash", "/usr/local/bin/waterline-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      start_period: 45s
+      retries: 24
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mysql_data:
+
+secrets:
+  mysql_root_password:
+    file: ./.secrets/mysql_root_password.txt
+  mysql_app_password:
+    file: ./.secrets/mysql_app_password.txt
